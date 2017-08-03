@@ -1,0 +1,20 @@
+{
+    "id": "sentenced-person",
+    "title": "Condamnare ${person}",
+    "params": {
+        "person": {
+            "type": "person"
+        }
+    },
+    "filters": [
+        {
+            "precision": 1,
+            "atonic": true,
+            "regex": "\\b([^\\r\\n\\t:;]{8,40})(?:[,-]|a fost) condamnat(?:a)?\\b",
+            "params": {
+                "1": "person"
+            }
+        }
+    ]
+}
+    

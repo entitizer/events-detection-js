@@ -20,6 +20,7 @@ detect({
 
 ### Event object:
 
+- id (`string`)
 - title (`string`)
 - precision (`number`) - event precision: 0..1
 - entities (NamedEntity[]) - an array of named entities in event

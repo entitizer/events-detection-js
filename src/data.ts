@@ -12,6 +12,7 @@ export type DataTemplateFilter = {
 }
 
 export type DataTemplate = {
+    id: string
     title: string
     params?: PlainObject<{ type: string }>
     filters: DataTemplateFilter[]

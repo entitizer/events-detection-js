@@ -23,6 +23,7 @@ export type DetectParams = {
 }
 
 export type Event = {
+    id: string
     title: string
     precision: number
     entities?: NamedEntity[]
@@ -79,7 +80,7 @@ function extractEvent(originalText: string, atonicText: string, template: DataTe
 }
 
 function formatEvent(regResult: RegExpExecArray, template: DataTemplate, filter: DataTemplateFilter, entities: NamedEntityInfo[]): Event {
-    const event: Event = { title: template.title, precision: filter.precision };
+    const event: Event = { id: template.id, title: template.title, precision: filter.precision };
 
     const filterParamsCount = Object.keys(filter.params || {}).length;
 

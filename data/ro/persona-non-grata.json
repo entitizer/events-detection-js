@@ -1,4 +1,5 @@
 {
+    "id": "persona-non-grata",
     "title": "${person}, persoană non grata",
     "params": {
         "person": {
@@ -17,7 +18,7 @@
         {
             "precision": 1,
             "atonic": true,
-            "regex": "\\bdeclara[\\S]{0,3} (?:persoa?na non grata|persoana indezirabila) pe ([^\\r\\n\\t:;]{8,40})\\b",
+            "regex": "\\bdeclara[\\S]{0,3} (?:persoa?na non[ -]grata|persoana indezirabila) pe ([^\\r\\n\\t:;]{8,40})\\b",
             "params": {
                 "1": "person"
             }
