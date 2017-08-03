@@ -1,0 +1,50 @@
+{
+  "name": "events-detection",
+  "version": "0.0.1",
+  "description": "Simple events detection in text",
+  "main": "./lib/index.js",
+  "types": "./types/index.d.ts",
+  "scripts": {
+    "pretest": "npm run tsc",
+    "test": "mocha -t 5000",
+    "tsc": "tsc",
+    "tscw": "tsc -w",
+    "preversion": "npm run tsc",
+    "postversion": "git push --follow-tags",
+    "prepublish": "npm run tsc",
+    "lint": "tslint ./src/**/*.ts"
+  },
+  "engines": {
+    "node": ">=4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/entitizer/events-detection-js.git"
+  },
+  "keywords": [
+    "events-detection",
+    "events",
+    "event",
+    "nlp"
+  ],
+  "author": "Dumitru Cantea",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/entitizer/events-detection-js/issues"
+  },
+  "homepage": "https://github.com/entitizer/events-detection-js#readme",
+  "devDependencies": {
+    "@types/bluebird": "^3.5.0",
+    "@types/lodash": "^4.14.71",
+    "@types/node": "^7.0.5",
+    "debug": "^2.6.8",
+    "mocha": "^3.2.0",
+    "tslint": "^4.5.1",
+    "typescript": "^2.4.2"
+  },
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "lodash": "^4.17.4",
+    "request": "^2.81.0"
+  }
+}
