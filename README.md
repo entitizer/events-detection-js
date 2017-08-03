@@ -5,7 +5,7 @@ A simple in text events detection module.
 ## Usage
 
 ``` js
-const { detect } = require('events-detection);
+const { detect } = require('events-detection');
 
 detect({
     lang: 'ro',
