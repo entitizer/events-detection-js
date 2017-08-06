@@ -5,16 +5,23 @@ import { Callback, PlainObject } from './utils';
 const CACHE: PlainObject<DataTemplate[]> = {};
 
 export type DataTemplateFilter = {
+    example: string
     precision: number
     atonic?: boolean
-    regex: string
-    params?: PlainObject<string>
+    regex: string | string[]
+    data?: PlainObject<string>
+}
+
+export type DataTemplatePredicate = {
+    id: string
+    name: string
 }
 
 export type DataTemplate = {
     id: string
     title: string
-    params?: PlainObject<{ type: string }>
+    predicate: DataTemplatePredicate
+    data?: PlainObject<{ type: string }>
     filters: DataTemplateFilter[]
 }
 

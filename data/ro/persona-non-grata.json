@@ -1,27 +1,42 @@
 {
     "id": "persona-non-grata",
-    "title": "${person}, persoană non grata",
-    "params": {
-        "person": {
+    "title": "${subject}, persoană non grata",
+    "predicate": {
+        "id": "persona-non-grata",
+        "name": "persoană non grata"
+    },
+    "data": {
+        "subject": {
             "type": "person"
         }
     },
     "filters": [
         {
+            "example": "Dmitri Rogozin a fost declarată persoană non grata",
             "precision": 1,
             "atonic": true,
             "regex": "\\b([^\\r\\n\\t:;]{8,40}) (?:persoa?na non[ -]grata|persoana indezirabila)\\b",
-            "params": {
-                "1": "person"
+            "data": {
+                "1": "subject"
             }
         },
         {
+            "example": "Chișinăul l-a declarat persoană non grata pe Dmitri Rogozin",
             "precision": 1,
             "atonic": true,
             "regex": "\\bdeclara[\\S]{0,3} (?:persoa?na non[ -]grata|persoana indezirabila) pe ([^\\r\\n\\t:;]{8,40})\\b",
-            "params": {
-                "1": "person"
+            "data": {
+                "1": "subject"
             }
+        },
+        {
+            "example": "referitor la declararea lui Dmitri Rogozin persoană non grata",
+            "precision": 0.5,
+            "atonic": true,
+            "regex": [
+                "\\bdeclara[\\S]{0,3}\\b",
+                "\\bpersoa?na non[ -]grata|persoana indezirabila\\b"
+            ]
         }
     ]
 }

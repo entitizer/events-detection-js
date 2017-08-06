@@ -1,7 +1,7 @@
 
 const debug = require('debug')('events-detection');
-import { Callback, PlainObject, _, isEntityType } from './utils';
-import { DataTemplate, DataTemplateFilter, getTemplates } from './data';
+import { Callback, PlainObject, _, isEntityType, StringPlainObject } from './utils';
+import { DataTemplate, DataTemplateFilter, getTemplates, DataTemplatePredicate } from './data';
 const atonic = require('atonic');
 
 export interface NamedEntity {
@@ -25,8 +25,9 @@ export type DetectParams = {
 export type Event = {
     id: string
     title: string
+    predicate: DataTemplatePredicate
     precision: number
-    entities?: NamedEntity[]
+    data?: PlainObject<NamedEntity>
 }
 
 export function detect(params: DetectParams, cb: Callback<Event[]>): void {
@@ -36,12 +37,12 @@ export function detect(params: DetectParams, cb: Callback<Event[]>): void {
         }
         const text = params.text;
         const atonicText = atonic(text);
-        const events: Event[] = [];
+        let events: Event[] = [];
         for (let i = 0; i < templates.length; i++) {
             try {
-                const event = extractEvent(text, atonicText, templates[i], params.entities);
-                if (event) {
-                    events.push(event);
+                const list = eventsFromTemplate(text, atonicText, templates[i], params.entities);
+                if (list) {
+                    events = events.concat(list);
                 }
             } catch (e) {
                 return cb(e);
@@ -51,72 +52,154 @@ export function detect(params: DetectParams, cb: Callback<Event[]>): void {
     });
 }
 
-function extractEvent(originalText: string, atonicText: string, template: DataTemplate, entities?: NamedEntityInfo[]): Event {
-    if (template.params && Object.keys(template.params).length && (!entities || !entities.length)) {
+// process template
+
+function eventsFromTemplate(originalText: string, atonicText: string, template: DataTemplate, entities?: NamedEntityInfo[]): Event[] {
+    if (template.data && Object.keys(template.data).length && (!entities || !entities.length)) {
         throw new Error('named entities are required!');
     }
 
-    let event: Event = null;
+    let events: Event[] = [];
     for (let i = 0; i < template.filters.length; i++) {
         const filter = template.filters[i];
-        const reg = new RegExp(filter.regex, 'i');
-        debug('reg', reg);
         const text = filter.atonic ? atonicText : originalText;
-        // debug('text', text);
-        const regResult = reg.exec(text);
-        if (regResult) {
-            debug('pass reg: ' + regResult[0]);
-            const aEvent = formatEvent(regResult, template, filter, entities);
-            if (aEvent) {
-                if (aEvent.precision === 1) {
-                    return aEvent;
-                }
-                event = event && event.precision >= aEvent.precision ? event : aEvent;
-            }
-        }
+
+        events = events.concat(eventsFromFilter(text, template, filter, entities));
     }
 
-    return event;
+    return events;
 }
 
-function formatEvent(regResult: RegExpExecArray, template: DataTemplate, filter: DataTemplateFilter, entities: NamedEntityInfo[]): Event {
-    const event: Event = { id: template.id, title: template.title, precision: filter.precision };
+function eventsFromFilter(text: string, template: DataTemplate, filter: DataTemplateFilter, entities: NamedEntityInfo[]): Event[] {
+    const regs = (Array.isArray(filter.regex) ? filter.regex : [filter.regex]).map(item => new RegExp(item, 'i'));
 
-    const filterParamsCount = Object.keys(filter.params || {}).length;
+    const regResults: RegExpExecArray[] = [];
 
-    if (regResult.length !== filterParamsCount + 1) {
-        throw new Error('Invalid data filter: ' + filter.regex);
+    for (let i = 0; i < regs.length; i++) {
+        const reg = regs[i];
+        const regResult = reg.exec(text);
+        if (!regResult) {
+            return [];
+        }
+        regResults.push(regResult);
     }
 
-    if (filterParamsCount === 0) {
-        debug('filterParamsCount=0');
-        return event;
+    // find data in regex result
+    if (filter.data) {
+        return eventsFromRegexData(regResults, template, filter, entities);
     }
 
-    const params: PlainObject<NamedEntity> = {};
+    // find data in entities
+    return eventsFromEntities(template, filter, entities);
+}
 
-    for (let i = 1; i < regResult.length; i++) {
-        const value = regResult[i];
-        const name = filter.params[i];
-        const index = regResult.index + regResult[0].indexOf(value);
-        const param = findParam(name, template, entities, index, index + value.length);
-        if (param) {
-            params[name] = param.entity;
-            event.title = formatText(event.title, name, param.entity);
-        } else {
-            debug(`Not found entity of type ${template.params[name].type} in: '${value}'`);
-            return null;
+function eventsFromEntities(template: DataTemplate, filter: DataTemplateFilter, entities: NamedEntityInfo[]): Event[] {
+    const names = Object.keys(template.data);
+    const entitiesByType: PlainObject<NamedEntityInfo[]> = {};
+    const typeNames = Object.keys(template.data).reduce<PlainObject<string[]>>((result, name) => {
+        const type = template.data[name].type;
+        if (!entitiesByType[type]) {
+            entitiesByType[type] = _.filter(entities, item => isEntityType(type, item.entity.type));
+        }
+        result[type] = result[type] || [];
+        result[type].push(name);
+        return result;
+    }, {});
+
+    debug('typeNames', typeNames);
+
+    const types = Object.keys(typeNames);
+
+    const events: Event[] = [];
+    let hasData = true;
+    let lastIds: string[] = [];
+    const typeIndexes: PlainObject<number> = {};
+
+    while (hasData) {
+        const data: PlainObject<NamedEntity> = {};
+        const event: Event = { id: template.id, title: template.title, precision: filter.precision, predicate: template.predicate, data: data };
+        const ids: string[] = [];
+        for (let ti = 0; ti < types.length; ti++) {
+            const type = types[ti];
+            if (typeIndexes[type] === undefined) {
+                typeIndexes[type] = 0;
+            }
+            debug('type index', type, typeIndexes[type]);
+            const names = typeNames[type];
+            for (let ni = 0; ni < names.length; ni++) {
+                const name = names[ni];
+                if (typeIndexes[type] < entitiesByType[type].length) {
+                    const param = entitiesByType[type][typeIndexes[type]];
+                    data[name] = param.entity;
+                    event.title = formatText(event.title, name, param.entity);
+                    ids.push(param.entity.id);
+                } else {
+                    hasData = false;
+                    debug('no more entities of type ', type);
+                }
+            }
+            typeIndexes[type]++;
+        }
+        if (ids.length === 0) {
+            debug('not found any ids!');
+            hasData = false;
+        }
+        // if got same data:
+        if (lastIds.join(',') === ids.join(',')) {
+            debug('data same ids');
+            hasData = false;
+        }
+        lastIds = ids;
+        if (hasData) {
+            debug('has data: ', data);
+            events.push(event);
         }
     }
 
-    event.entities = Object.keys(params).map(key => params[key]);
+    return events;
+}
 
-    return event;
+function eventsFromRegexData(regResults: RegExpExecArray[], template: DataTemplate, filter: DataTemplateFilter, entities: NamedEntityInfo[]): Event[] {
+    const dataNames = _.values(filter.data || {});
+    if (dataNames.length === 0) {
+        debug('no data names to find');
+        return [];
+    }
+    const params: PlainObject<NamedEntity> = {};
+    let countAllParams = 0;
+
+    const event: Event = { id: template.id, title: template.title, precision: filter.precision, predicate: template.predicate, data: params };
+
+    regResults.forEach(regResult => {
+        for (let i = 1; i < regResult.length; i++) {
+            const value = regResult[i];
+            const name = filter.data[i];
+            const index = regResult.index + regResult[0].indexOf(value);
+            const param = findParam(name, template, entities, index, index + value.length);
+            if (param) {
+                if (!params[name]) {
+                    params[name] = param.entity;
+                    event.title = formatText(event.title, name, param.entity);
+                    countAllParams++;
+                }
+            } else {
+                debug(`Not found entity of type ${template.data[name].type} in: '${value}'`);
+                break;
+            }
+        }
+    });
+
+    if (dataNames.length !== countAllParams) {
+        debug('not found all params!');
+        return [];
+    }
+
+    return [event];
 }
 
 function findParam(name: string, template: DataTemplate, entities: NamedEntityInfo[], minIndex: number, maxIndex: number) {
     debug('find param', name, minIndex, maxIndex);
-    const p = template.params[name];
+    const p = template.data[name];
     if (!p) {
         throw new Error('Invalid param name: ' + name);
     }
